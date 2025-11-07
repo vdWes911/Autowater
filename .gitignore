@@ -1,2 +1,30 @@
 .pio
 .idea
+
+# Minified web assets (generated during build)
+web/*.min.html
+web/*.min.css
+web/*.min.js
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Build artifacts
+build/
+*.bin
+*.elf
+*.map
+
+# Minification backups
+*.backup
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Build artifacts
+build/
+*.bin
+*.elf
+*.map

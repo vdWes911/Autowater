@@ -16,6 +16,11 @@ void app_main(void) {
     // Initialize relay GPIOs
     relay_init();
 
+    // Initialize SPIFFS for web files
+    if (init_spiffs() != ESP_OK) {
+        ESP_LOGE("APP", "Failed to initialize SPIFFS");
+    }
+
     // Start HTTP server
     web_server_start();
 
