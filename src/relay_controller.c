@@ -4,13 +4,13 @@
 
 #include "driver/gpio.h"
 
-static const gpio_num_t relay_pins[NUM_RELAYS] =  { 4, 5, 6, 7 }; // Adjust your GPIOs
+static const gpio_num_t relay_pins[NUM_RELAYS] =  { 10, 5, 6, 7 }; // Adjust your GPIOs
 static bool relay_states[NUM_RELAYS] = {0};
 
 void relay_init(void) {
     gpio_config_t io_conf = {
-        .mode = GPIO_MODE_OUTPUT,
         .pin_bit_mask = 0,
+        .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE

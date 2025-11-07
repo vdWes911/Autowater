@@ -22,20 +22,13 @@ static esp_err_t relay_handler(httpd_req_t *req) {
     if (sscanf(buf, "relay=%d&action=%7s", &relay, action) == 2) {
         if (relay >= 0 && relay < NUM_RELAYS) {
             if (strcmp(action, "on") == 0) {
-                printf("Relay %d turned ON", relay + 1);
                 ESP_LOGI(TAG, "Relay %d turned ON", relay + 1);
                 relay_on(relay);
-
             } else if (strcmp(action, "off") == 0) {
-
-                printf("Relay %d turned OFF", relay + 1);
-                ESP_LOGI(TAG, "Relay %d turned OFF", relay + 1);relay_off(relay);
+                ESP_LOGI(TAG, "Relay %d turned OFF", relay + 1);
+                relay_off(relay);
             }
         }
-    } else {
-        httpd_resp_send_500(req);
-        printf("Invalid request format\n");
-        return ESP_FAIL;
     }
 
     // Redirect back to main page
