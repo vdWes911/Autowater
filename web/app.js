@@ -1,4 +1,4 @@
-const RELAY_NAMES = ['Plants', 'Front Lawn', 'Grass', 'Patio Grass'];
+const RELAY_NAMES = ['Plants', 'Grass', 'Patio Grass', 'Front Lawn'];
 
 async function toggleRelay(id, action) {
     const card = document.getElementById('relay-' + id);

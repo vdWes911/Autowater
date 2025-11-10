@@ -4,7 +4,7 @@
 
 #include "driver/gpio.h"
 
-static const gpio_num_t relay_pins[NUM_RELAYS] = {(gpio_num_t) 5, (gpio_num_t) 6, (gpio_num_t) 7, (gpio_num_t) 10};
+static const gpio_num_t relay_pins[NUM_RELAYS] = {(gpio_num_t) 7, (gpio_num_t) 6, (gpio_num_t) 5, (gpio_num_t) 10};
 // Adjust your GPIOs
 static bool relay_states[NUM_RELAYS] = {0};
 
