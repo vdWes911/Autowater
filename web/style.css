@@ -33,11 +33,9 @@ h1 {
     padding: 24px;
     margin-bottom: 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
 }
 
 .card:hover {
-    transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
@@ -164,6 +162,27 @@ button:active:not(:disabled) {
     transform: translateY(-2px);
 }
 
+.btn-small {
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 6px;
+    flex: none;
+}
+
+.btn-icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 18px;
+    background: #455a64;
+    color: #eceff1;
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: #546e7a;
+}
+
 .btn-timer-trigger {
     background: #0288d1;
     color: #e1f5fe;
@@ -178,6 +197,340 @@ button:active:not(:disabled) {
     background: #039be5;
     box-shadow: 0 5px 15px rgba(3, 155, 229, 0.5);
     transform: translateY(-2px);
+}
+
+/* Nav styles */
+.nav {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+}
+
+.nav-link {
+    color: #81d4fa;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.nav-link:hover {
+    text-decoration: underline;
+}
+
+/* Routine Specific Styles */
+.routine-selector {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+#routine-list {
+    flex: 1;
+    background: #263238;
+    color: #eceff1;
+    border: 1px solid #546e7a;
+    border-radius: 10px;
+    padding: 10px;
+    outline: none;
+}
+
+.routine-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.routine-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #546e7a;
+    color: #eceff1;
+    font-size: 20px;
+    font-weight: 600;
+    padding: 4px;
+    flex: 1;
+    margin-right: 15px;
+    outline: none;
+}
+
+.routine-name-input:focus {
+    border-bottom-color: #81d4fa;
+}
+
+.routine-step-card {
+    background: #37474f;
+    border: 1px solid #546e7a;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+    animation: slideIn 0.3s ease-out;
+}
+
+.routine-step-card.moving {
+    z-index: 10;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.step-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.step-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #eceff1;
+}
+
+.step-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #b0bec5;
+}
+
+.step-controls input {
+    width: 45px;
+    background: transparent;
+    border: none;
+    color: #eceff1;
+    padding: 8px 0;
+    text-align: center;
+    font-weight: 600;
+    font-size: 16px;
+    -moz-appearance: textfield;
+}
+
+.step-controls input::-webkit-outer-spin-button,
+.step-controls input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.btn-step-adjust {
+    background: #455a64;
+    border: 1px solid #546e7a;
+    color: #eceff1;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    flex: none;
+    transition: all 2s ease;
+}
+
+.btn-step-adjust:hover {
+    background: #546e7a;
+}
+
+.step-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-add-step {
+    position: sticky;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #2e7d32;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    z-index: 100;
+    margin: 20px auto;
+}
+
+.btn-add-step:hover {
+    background: #388e3c;
+    transform: translateX(-50%) translateY(-2px);
+}
+
+.btn-remove-step {
+    background: #c62828;
+    color: white;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+}
+
+/* Station Selection Modal */
+.station-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.station-option {
+    background: #455a64;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: 600;
+    color: #eceff1;
+    transition: background 0.2s;
+}
+
+.station-option:hover {
+    background: #546e7a;
+}
+
+.routines-container {
+    margin-top: 20px;
+    border-top: 1px solid #546e7a;
+    padding-top: 20px;
+}
+
+.routine-pill {
+    background: #0288d1;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: all 0.2s;
+    gap: 15px;
+}
+
+.routine-pill:hover {
+    transform: scale(1.02);
+    background: #039be5;
+}
+
+.routine-pill.active {
+    background: #2e7d32;
+    animation: pulse 2s infinite;
+    cursor: default;
+}
+
+.routine-pill-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.routine-pill-name {
+    font-weight: 600;
+}
+
+.routine-pill-status {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.btn-stop-routine, .btn-skip-routine {
+    background: #e53935;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    flex: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    height: 28px;
+}
+
+.btn-skip-routine {
+    background: #f57c00;
+    margin-right: 4px;
+}
+
+.btn-stop-routine:hover {
+    background: #f44336;
+    transform: scale(1.05);
+}
+
+.btn-skip-routine:hover {
+    background: #ff9800;
+    transform: scale(1.05);
+}
+
+.routine-pill-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Toast Notification */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+}
+
+.toast {
+    background: #323232;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    margin-top: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 200px;
+    text-align: center;
+    animation: slideUp 0.3s ease-out;
+    transition: opacity 0.5s, transform 0.5s;
+    border-left: 4px solid #546e7a;
+}
+
+.toast.error {
+    border-left-color: #e53935;
+    background: #4a1c1c;
+}
+
+.toast.success {
+    border-left-color: #2e7d32;
+    background: #1c3a1c;
+}
+
+.toast.fade-out {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 /* Modal Styles */
@@ -201,9 +554,10 @@ button:active:not(:disabled) {
     border-radius: 16px;
     padding: 24px;
     width: 90%;
-    max-width: 320px;
+    max-width: 400px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     text-align: center;
+    position: relative;
 }
 
 .modal h3 {
@@ -277,7 +631,37 @@ button:active:not(:disabled) {
 }
 
 @media (max-width: 480px) {
-    h1 { font-size: 26px; }
-    .relay-name { font-size: 18px; }
-    button { font-size: 13px; padding: 12px 16px; }
+    body { padding: 12px; }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    .card { padding: 16px; margin-bottom: 12px; }
+    .relay-name { font-size: 16px; }
+    .routine-name-input { font-size: 18px; margin-right: 8px; }
+    
+    .routine-step-card { 
+        padding: 12px; 
+        margin-bottom: 8px;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+    .step-info { gap: 4px; flex: 1; min-width: 0; }
+    .step-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .step-controls { gap: 4px; font-size: 12px; }
+    .step-controls input { width: 35px; font-size: 14px; padding: 4px 0; }
+    .btn-step-adjust { width: 24px; height: 24px; font-size: 16px; }
+    
+    .step-actions { gap: 6px; }
+    .btn-icon, .btn-remove-step { width: 28px; height: 28px; }
+    .btn-icon svg, .btn-remove-step svg { width: 14px; height: 14px; }
+
+    button { font-size: 12px; padding: 10px 14px; }
+    .btn-small { padding: 6px 10px; font-size: 10px; }
+    
+    .routine-pill { padding: 10px 16px; }
+    .routine-pill-name { font-size: 14px; }
+    .routine-pill-status { font-size: 10px; }
+    
+    .status-group { gap: 6px; }
+    .btn-timer-trigger { flex: 0 0 36px; height: 26px; }
+    .status { padding: 4px 8px; font-size: 10px; }
 }

@@ -1,9 +1,28 @@
-const RELAY_NAMES = ['Plants', 'Grass', 'Patio Grass', 'Front Lawn'];
 
 const ICONS = {
     timer: `<svg class="status-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`,
     manual: `<svg class="status-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`
 };
+
+function showToast(message, type = 'error') {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
 
 async function toggleRelay(id, action, durationMinutes) {
     const card = document.getElementById('relay-' + id);
@@ -36,7 +55,7 @@ async function toggleRelay(id, action, durationMinutes) {
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Failed to control relay. Please try again.');
+        showToast('Failed to control relay. Please try again.');
     } finally {
         buttons.forEach(btn => {
             btn.disabled = false;
@@ -101,11 +120,19 @@ function closeModal(id) {
 
 function timedRelay(id) {
     const input = document.getElementById('duration-' + id);
-    const duration = input.value;
+    const duration = parseInt(input.value);
     if (duration > 0) {
         toggleRelay(id, 'timed', duration);
     } else {
-        alert('Please enter a valid duration in minutes.');
+        showToast('Please enter a valid duration in minutes.');
+    }
+}
+
+function adjustTimerDuration(id, delta) {
+    const input = document.getElementById('duration-' + id);
+    if (input) {
+        const newVal = Math.max(1, Math.min(20, (parseInt(input.value) || 0) + delta));
+        input.value = newVal;
     }
 }
 
@@ -124,6 +151,133 @@ async function updateStatus() {
     } catch (error) {
         console.error('Status update error:', error);
     }
+}
+
+let routines = [];
+let activeRoutineId = null;
+let stopRequested = false;
+let skipRequested = false;
+
+async function fetchRoutines() {
+    try {
+        const response = await fetch('/api/routines');
+        if (response.ok) {
+            routines = await response.json();
+            renderRoutines();
+        }
+    } catch (e) {
+        console.error("Failed to fetch routines", e);
+    }
+}
+
+function renderRoutines() {
+    const container = document.getElementById('routines');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    if (routines.length > 0) {
+        const title = document.createElement('h2');
+        title.textContent = 'Routines';
+        title.style.color = '#eceff1';
+        title.style.fontSize = '20px';
+        title.style.marginBottom = '15px';
+        container.appendChild(title);
+    }
+
+    routines.forEach((routine, index) => {
+        const pill = document.createElement('div');
+        pill.className = 'routine-pill';
+        if (activeRoutineId === index) pill.classList.add('active');
+        
+        const isActive = activeRoutineId === index;
+        
+        pill.innerHTML = `
+            <div class="routine-pill-content" onclick="${isActive ? '' : `runRoutine(${index})`}">
+                <span class="routine-pill-name">${routine.name}</span>
+                <span class="routine-pill-status" id="routine-status-${index}">
+                    ${isActive ? 'Running...' : 'Start'}
+                </span>
+            </div>
+            ${isActive ? `
+                <div class="routine-pill-actions">
+                    <button class="btn-skip-routine" onclick="skipStep(event)">Skip</button>
+                    <button class="btn-stop-routine" onclick="stopActiveRoutine(event)">Stop</button>
+                </div>
+            ` : ''}
+        `;
+        container.appendChild(pill);
+    });
+}
+
+function stopActiveRoutine(event) {
+    if (event) event.stopPropagation();
+    stopRequested = true;
+}
+
+function skipStep(event) {
+    if (event) event.stopPropagation();
+    skipRequested = true;
+}
+
+async function runRoutine(index) {
+    if (activeRoutineId !== null) {
+        showToast("A routine is already running");
+        return;
+    }
+
+    const routine = routines[index];
+    
+    activeRoutineId = index;
+    stopRequested = false;
+    skipRequested = false;
+    renderRoutines();
+
+    const sortedSteps = [...routine.steps]
+        .filter(s => s.enabled)
+        .sort((a, b) => a.order - b.order);
+
+    for (const step of sortedSteps) {
+        if (stopRequested) break;
+        skipRequested = false;
+        
+        document.getElementById(`routine-status-${index}`).textContent = `Watering ${step.name}...`;
+        
+        try {
+            await toggleRelay(step.id, 'timed', step.duration);
+            
+            // Wait for this step to complete (with a small buffer)
+            const durationMs = step.duration * 60 * 1000;
+            const startTime = Date.now();
+            
+            // Poll for stop/skip request while waiting
+            while (Date.now() - startTime < durationMs + 2000) {
+                if (stopRequested || skipRequested) {
+                    await toggleRelay(step.id, 'off');
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            if (stopRequested) break;
+            
+            // Re-sync status
+            await updateStatus();
+        } catch (e) {
+            console.error("Routine step failed", e);
+            showToast(`Step ${step.name} failed`);
+            break;
+        }
+    }
+
+    const wasStopped = stopRequested;
+    activeRoutineId = null;
+    stopRequested = false;
+    skipRequested = false;
+    renderRoutines();
+    if (!wasStopped) {
+        showToast(`Routine ${routine.name} completed!`, "success");
+    }
+    updateStatus();
 }
 
 function createRelayCards() {
@@ -156,8 +310,13 @@ function createRelayCards() {
             <div id="modal-${i}" class="modal-overlay" onclick="if(event.target===this)closeModal(${i})">
                 <div class="modal">
                     <h3>Set Timer (min)</h3>
+                    <div class="step-name" style="margin-bottom: 10px;">${RELAY_NAMES[i]}</div>
                     <div id="modal-rem-${i}" class="modal-remaining"></div>
-                    <input type="number" id="duration-${i}" value="${lastDuration}" min="1" max="20">
+                    <div class="step-controls" style="justify-content: center; margin-bottom: 20px;">
+                        <button class="btn-step-adjust" onclick="adjustTimerDuration(${i}, -1)">-</button>
+                        <input type="number" id="duration-${i}" value="${lastDuration}" min="1" max="20" style="margin-bottom: 0; width: 60px;">
+                        <button class="btn-step-adjust" onclick="adjustTimerDuration(${i}, 1)">+</button>
+                    </div>
                     <div class="modal-btns">
                         <button class="btn-cancel" onclick="closeModal(${i})">Cancel</button>
                         <button class="btn-timed" onclick="timedRelay(${i})">Start</button>
@@ -174,6 +333,7 @@ function createRelayCards() {
 document.addEventListener('DOMContentLoaded', () => {
     createRelayCards();
     updateStatus();
+    fetchRoutines();
     setInterval(updateStatus, 10000); // Check ESP every 10s
     
     // Smooth countdown local update

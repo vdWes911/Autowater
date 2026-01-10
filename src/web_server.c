@@ -153,6 +153,13 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
 // Helper function to serve files from SPIFFS
 static esp_err_t serve_spiffs_file(httpd_req_t *req, const char *filepath, const char *content_type) {
     ESP_LOGI(TAG, "Serving file: %s", filepath);
+    struct stat st;
+    if (stat(filepath, &st) != 0) {
+        ESP_LOGE(TAG, "File not found: %s", filepath);
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+    }
+
     FILE *f = fopen(filepath, "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file: %s", filepath);
@@ -160,7 +167,7 @@ static esp_err_t serve_spiffs_file(httpd_req_t *req, const char *filepath, const
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "File opened successfully");
+    ESP_LOGI(TAG, "File opened successfully, size: %ld", st.st_size);
 
     httpd_resp_set_type(req, content_type);
 
@@ -180,9 +187,76 @@ static esp_err_t serve_spiffs_file(httpd_req_t *req, const char *filepath, const
     return ESP_OK;
 }
 
+static esp_err_t api_routines_handler(httpd_req_t *req) {
+    const char* filepath = "/spiffs/routines.json";
+    if (req->method == HTTP_GET) {
+        struct stat st;
+        if (stat(filepath, &st) != 0) {
+            // If file doesn't exist, return empty array
+            httpd_resp_set_type(req, "application/json");
+            httpd_resp_sendstr(req, "[]");
+            return ESP_OK;
+        }
+        return serve_spiffs_file(req, filepath, "application/json");
+    }
+
+    if (req->method == HTTP_POST) {
+        int total_len = req->content_len;
+        int remaining = total_len;
+        
+        if (total_len <= 0) {
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Content length required");
+            return ESP_FAIL;
+        }
+
+        if (total_len > 4096) { // Safety limit
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Content too long");
+            return ESP_FAIL;
+        }
+
+        char *buf = malloc(total_len + 1);
+        if (buf == NULL) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
+            return ESP_FAIL;
+        }
+
+        int received = 0;
+        while (remaining > 0) {
+            int ret = httpd_req_recv(req, buf + received, remaining);
+            if (ret <= 0) {
+                if (ret == HTTPD_SOCK_ERR_TIMEOUT) continue;
+                free(buf);
+                return ESP_FAIL;
+            }
+            received += ret;
+            remaining -= ret;
+        }
+        buf[received] = '\0';
+
+        FILE *f = fopen(filepath, "w");
+        if (f == NULL) {
+            free(buf);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to open file for writing");
+            return ESP_FAIL;
+        }
+        fputs(buf, f);
+        fclose(f);
+        free(buf);
+        
+        httpd_resp_sendstr(req, "{\"success\":true}");
+        return ESP_OK;
+    }
+    return ESP_FAIL;
+}
+
 static esp_err_t index_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "Index request");
     return serve_spiffs_file(req, "/spiffs/index.min.html", "text/html");
+}
+
+static esp_err_t routine_handler(httpd_req_t *req) {
+    ESP_LOGI(TAG, "Routine request");
+    return serve_spiffs_file(req, "/spiffs/routine.min.html", "text/html");
 }
 
 static esp_err_t style_handler(httpd_req_t *req) {
@@ -193,8 +267,17 @@ static esp_err_t app_js_handler(httpd_req_t *req) {
     return serve_spiffs_file(req, "/spiffs/app.min.js", "application/javascript");
 }
 
+static esp_err_t config_js_handler(httpd_req_t *req) {
+    return serve_spiffs_file(req, "/spiffs/config.min.js", "application/javascript");
+}
+
+static esp_err_t routine_js_handler(httpd_req_t *req) {
+    return serve_spiffs_file(req, "/spiffs/routine.min.js", "application/javascript");
+}
+
 void web_server_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 16;
     httpd_handle_t server = NULL;
 
     if (httpd_start(&server, &config) == ESP_OK) {
@@ -205,6 +288,13 @@ void web_server_start(void) {
             .handler = index_handler
         };
         httpd_register_uri_handler(server, &index_uri);
+
+        httpd_uri_t routine_page_uri = {
+            .uri = "/routine",
+            .method = HTTP_GET,
+            .handler = routine_handler
+        };
+        httpd_register_uri_handler(server, &routine_page_uri);
 
         httpd_uri_t style_min_uri = {
             .uri = "/style.css",
@@ -218,8 +308,28 @@ void web_server_start(void) {
             .method = HTTP_GET,
             .handler = app_js_handler
         };
-
         httpd_register_uri_handler(server, &ap_min_js_uri);
+
+        httpd_uri_t routine_min_js_uri = {
+            .uri = "/routine.js",
+            .method = HTTP_GET,
+            .handler = routine_js_handler
+        };
+        httpd_register_uri_handler(server, &routine_min_js_uri);
+
+        httpd_uri_t config_js_uri = {
+            .uri = "/config.js",
+            .method = HTTP_GET,
+            .handler = config_js_handler
+        };
+        httpd_register_uri_handler(server, &config_js_uri);
+
+        httpd_uri_t config_min_js_uri = {
+            .uri = "/config.min.js",
+            .method = HTTP_GET,
+            .handler = config_js_handler
+        };
+        httpd_register_uri_handler(server, &config_min_js_uri);
 
         httpd_uri_t style_uri = {
             .uri = "/style.min.css",
@@ -235,6 +345,13 @@ void web_server_start(void) {
         };
         httpd_register_uri_handler(server, &app_js_uri);
 
+        httpd_uri_t routine_js_uri = {
+            .uri = "/routine.min.js",
+            .method = HTTP_GET,
+            .handler = routine_js_handler
+        };
+        httpd_register_uri_handler(server, &routine_js_uri);
+
         // API endpoints
         httpd_uri_t api_status_uri = {
             .uri = "/api/status",
@@ -249,6 +366,20 @@ void web_server_start(void) {
             .handler = api_relay_handler
         };
         httpd_register_uri_handler(server, &api_relay_uri);
+
+        httpd_uri_t api_routines_uri = {
+            .uri = "/api/routines",
+            .method = HTTP_GET,
+            .handler = api_routines_handler
+        };
+        httpd_register_uri_handler(server, &api_routines_uri);
+
+        httpd_uri_t api_routines_post_uri = {
+            .uri = "/api/routines",
+            .method = HTTP_POST,
+            .handler = api_routines_handler
+        };
+        httpd_register_uri_handler(server, &api_routines_post_uri);
         
         ESP_LOGI(TAG, "Web server started with API endpoints");
     }
