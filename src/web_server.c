@@ -40,7 +40,16 @@ esp_err_t init_spiffs(void) {
         ESP_LOGI(TAG, "SPIFFS: total: %d, used: %d", total, used);
     }
 
+    ESP_LOGI(TAG, "SPIFFS initialized");
     return ESP_OK;
+}
+
+static const char* mode_to_str(relay_mode_t mode) {
+    switch (mode) {
+        case RELAY_MODE_MANUAL: return "manual";
+        case RELAY_MODE_TIMED: return "timed";
+        default: return "off";
+    }
 }
 
 // API endpoint to get relay status (JSON)
@@ -49,12 +58,15 @@ static esp_err_t api_status_handler(httpd_req_t *req) {
     int len = snprintf(json, sizeof(json), "{\"relays\":[");
     
     for (int i = 0; i < NUM_RELAYS; i++) {
-        bool state = relay_get_state(i);
+        relay_mode_t mode = relay_get_mode(i);
+        uint32_t remaining = (mode != RELAY_MODE_OFF) ? relay_get_remaining_time(i) : 0;
         len += snprintf(json + len, sizeof(json) - len,
-            R"(%s{"id":%d,"state":"%s"})",
+            R"(%s{"id":%d,"state":"%s","mode":"%s","rem":%u})",
             (i > 0) ? "," : "",
             i,
-            state ? "on" : "off"
+            (mode != RELAY_MODE_OFF) ? "on" : "off",
+            mode_to_str(mode),
+            (unsigned int)remaining
         );
     }
     
@@ -77,6 +89,7 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
         if (httpd_req_get_url_query_str(req, query, query_len + 1) == ESP_OK) {
             char action[8] = {0};
             char relay_str[8] = {0};
+            char duration_str[16] = {0};
 
             // Parse parameters
             if (httpd_query_key_value(query, "id", relay_str, sizeof(relay_str)) == ESP_OK &&
@@ -99,6 +112,13 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
                 } else if (strcmp(action, "toggle") == 0) {
                     relay_toggle(relay);
                     ESP_LOGI(TAG, "API: Relay %d toggled", relay);
+                } else if (strcmp(action, "timed") == 0) {
+                    uint32_t duration = 0;
+                    if (httpd_query_key_value(query, "duration", duration_str, sizeof(duration_str)) == ESP_OK) {
+                        duration = atoi(duration_str);
+                    }
+                    relay_on_with_timer(relay, duration);
+                    ESP_LOGI(TAG, "API: Relay %d turned ON for %u seconds", relay, (unsigned int)duration);
                 } else {
                     free(query);
                     httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid action");
@@ -106,10 +126,14 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
                 }
 
                 // Return JSON response
+                relay_mode_t mode = relay_get_mode(relay);
+                uint32_t remaining = (mode != RELAY_MODE_OFF) ? relay_get_remaining_time(relay) : 0;
                 snprintf(buf, sizeof(buf),
-                    "{\"relay\":%d,\"state\":\"%s\",\"success\":true}",
+                    "{\"relay\":%d,\"state\":\"%s\",\"mode\":\"%s\",\"rem\":%u,\"success\":true}",
                     relay,
-                    relay_get_state(relay) ? "on" : "off"
+                    (mode != RELAY_MODE_OFF) ? "on" : "off",
+                    mode_to_str(mode),
+                    (unsigned int)remaining
                 );
 
                 httpd_resp_set_type(req, "application/json");
@@ -128,12 +152,15 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
 
 // Helper function to serve files from SPIFFS
 static esp_err_t serve_spiffs_file(httpd_req_t *req, const char *filepath, const char *content_type) {
+    ESP_LOGI(TAG, "Serving file: %s", filepath);
     FILE *f = fopen(filepath, "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file: %s", filepath);
         httpd_resp_send_404(req);
         return ESP_FAIL;
     }
+
+    ESP_LOGI(TAG, "File opened successfully");
 
     httpd_resp_set_type(req, content_type);
 
@@ -179,15 +206,30 @@ void web_server_start(void) {
         };
         httpd_register_uri_handler(server, &index_uri);
 
-        httpd_uri_t style_uri = {
+        httpd_uri_t style_min_uri = {
             .uri = "/style.css",
+            .method = HTTP_GET,
+            .handler = style_handler
+        };
+        httpd_register_uri_handler(server, &style_min_uri);
+
+        httpd_uri_t ap_min_js_uri = {
+            .uri = "/app.js",
+            .method = HTTP_GET,
+            .handler = app_js_handler
+        };
+
+        httpd_register_uri_handler(server, &ap_min_js_uri);
+
+        httpd_uri_t style_uri = {
+            .uri = "/style.min.css",
             .method = HTTP_GET,
             .handler = style_handler
         };
         httpd_register_uri_handler(server, &style_uri);
 
         httpd_uri_t app_js_uri = {
-            .uri = "/app.js",
+            .uri = "/app.min.js",
             .method = HTTP_GET,
             .handler = app_js_handler
         };

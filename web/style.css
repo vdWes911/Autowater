@@ -48,6 +48,12 @@ h1 {
     margin-bottom: 18px;
 }
 
+.status-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .relay-name {
     font-size: 20px;
     font-weight: 600;
@@ -58,13 +64,19 @@ h1 {
 .status {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.8px;
     transition: all 0.3s;
     text-transform: uppercase;
+    gap: 6px;
+}
+
+.status-icon {
+    flex-shrink: 0;
+    margin-top: -1px;
 }
 
 .status::before {
@@ -114,6 +126,9 @@ button {
     text-transform: uppercase;
     letter-spacing: 0.8px;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 button:disabled {
@@ -147,6 +162,90 @@ button:active:not(:disabled) {
     background: #ef5350;
     box-shadow: 0 5px 15px rgba(239, 83, 80, 0.5);
     transform: translateY(-2px);
+}
+
+.btn-timer-trigger {
+    background: #0288d1;
+    color: #e1f5fe;
+    flex: 0 0 42px;
+    height: 29px;
+    padding: 0;
+    border-radius: 80px;
+    border: 1px solid #0277bd;
+}
+
+.btn-timer-trigger:hover:not(:disabled) {
+    background: #039be5;
+    box-shadow: 0 5px 15px rgba(3, 155, 229, 0.5);
+    transform: translateY(-2px);
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    background: #37474f;
+    border: 1px solid #546e7a;
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 320px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    text-align: center;
+}
+
+.modal h3 {
+    color: #eceff1;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.modal-remaining {
+    font-size: 14px;
+    color: #81d4fa;
+    margin-bottom: 15px;
+    font-weight: 600;
+    min-height: 20px;
+}
+
+.modal input {
+    width: 100%;
+    background: #263238;
+    border: 1px solid #546e7a;
+    border-radius: 10px;
+    padding: 12px;
+    color: #eceff1;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 20px;
+    outline: none;
+}
+
+.modal-btns {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-timed {
+    background: #0288d1;
+    color: #e1f5fe;
+}
+
+.btn-cancel {
+    background: #546e7a;
+    color: #eceff1;
 }
 
 .loading {

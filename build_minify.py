@@ -23,18 +23,14 @@ def run_minify(source, target, env):
             )
 
         # Run npm minify
-        result = subprocess.run(
+        # We don't capture output anymore to avoid encoding issues with emojis
+        # in some terminal environments (e.g. CP1252 vs UTF-8)
+        subprocess.run(
             ["npm", "run", "minify"],
             cwd=project_dir,
             shell=True,
-            capture_output=True,
-            text=True,
             check=True
         )
-
-        print(result.stdout)
-        if result.stderr:
-            print(result.stderr)
 
         print("=" * 60)
         print("✅ Minification complete!")
@@ -57,4 +53,9 @@ def run_minify(source, target, env):
         sys.exit(1)
 
 # Register the pre-build hook
+print("Registering pre-build minification hook...")
 env.AddPreAction("buildprog", run_minify)
+env.AddPreAction("size", run_minify)
+env.AddPreAction("upload", run_minify)
+# Also run it immediately when the script is loaded by PlatformIO
+run_minify(None, None, env)

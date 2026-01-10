@@ -10,17 +10,17 @@ This directory contains the web interface files for the Autowater ESP32 project.
 
 ## How It Works
 
-These files are embedded into the ESP32 firmware at compile time using the ESP-IDF build system. The CMakeLists.txt file in the `src/` directory specifies these files as `EMBED_FILES`, which converts them into binary data that can be served by the web server.
+These files are minified into the `data/` directory and then uploaded to the ESP32 SPIFFS partition using PlatformIO's `uploadfs` target. This link is defined in `platformio.ini` by the `data_dir = data` setting in the `[platformio]` section and integrated into the build via `spiffs_create_partition_image` in `CMakeLists.txt`. The web server then serves these minified files from the `/spiffs` mount point.
 
 ## Making Changes
 
 You can edit these files directly with proper syntax highlighting and formatting. After making changes:
 
-1. Clean the build if needed: `pio run -t clean`
-2. Build the project: `pio run`
-3. Upload to the ESP32: `pio run -t upload`
+1.  **Minify and Build**: `pio run` (automatically runs `npm run minify`)
+2.  **Upload Firmware**: `pio run -t upload`
+3.  **Upload Web Files**: `pio run -t uploadfs` (This is required whenever web files are updated)
 
-The build system will automatically embed the updated files into the firmware.
+The `uploadfs` command will create a SPIFFS image from the `data/` directory and upload it to the ESP32.
 
 ## API Endpoints
 
