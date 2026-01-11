@@ -15,6 +15,8 @@ This project uses SPIFFS (SPI Flash File System) to store and serve web interfac
 - Can be uploaded independently from firmware
 - Smaller firmware size
 - Easier to update web interface without recompiling
+- **Explicit Link**: The `data_dir = data` setting in the `[platformio]` section of `platformio.ini` tells PlatformIO where your data is.
+- **ESP-IDF Integration**: The `spiffs_create_partition_image(storage data FLASH_IN_PROJECT)` line in `CMakeLists.txt` is the primary way the ESP-IDF framework packages your `data/` folder into the SPIFFS image.
 
 ## Project Structure
 
@@ -43,15 +45,18 @@ The `partitions.csv` file defines the flash memory layout:
 
 ```csv
 # Name,   Type, SubType, Offset,  Size, Flags
-nvs,      data, nvs,     0x9000,  0x6000,
+nvs,      data, nvs,     0x9000,  0x4000,
+otadata,  data, ota,     0xd000,  0x2000,
 phy_init, data, phy,     0xf000,  0x1000,
-factory,  app,  factory, 0x10000, 0x200000,  # 2MB for firmware
-storage,  data, spiffs,  ,        0x100000,  # 1MB for SPIFFS
+ota_0,    app,  ota_0,   0x10000, 0x400000,  # 4MB for firmware
+ota_1,    app,  ota_1,   ,        0x400000,  # 4MB for firmware
+storage,  data, spiffs,  ,        0x700000,  # 7MB for SPIFFS
 ```
 
 - **NVS**: Non-volatile storage for Wi-Fi credentials
-- **factory**: Main firmware partition (2MB)
-- **storage**: SPIFFS partition for web files (1MB)
+- **otadata**: OTA selection data
+- **ota_0 / ota_1**: Dual app partitions for OTA updates
+- **storage**: SPIFFS partition for web files (7MB)
 
 ## Build and Upload Process
 
@@ -219,7 +224,7 @@ Example output:
 
 ## Notes
 
-- The SPIFFS partition is 1MB, plenty for small web files
+- The SPIFFS partition is 10MB, plenty for small web files
 - Minified files are automatically created during build
 - Original files (index.html, style.css, app.js) are kept for development
 - Only minified files (.min.*) are uploaded to ESP32

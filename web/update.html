@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>OTA Update</title>
+    <link rel="stylesheet" href="style.min.css">
+</head>
+<body>
+    <div class='container'>
+        <div class="nav">
+            <a href="/" class="nav-link">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+        </div>
+        <h1>OTA Update</h1>
+        
+        <div class="card">
+            <h3 style="color: #b0bec5; font-size: 22px; margin-bottom: 20px;">Update Device</h3>
+            <p style="color: #b0bec5; font-size: 14px; margin-bottom: 20px;">
+                Select the binary file to upload. After a successful upload, the device will reboot automatically.
+            </p>
+            
+            <div class="step-info" style="margin-bottom: 20px;">
+                <label style="color: #eceff1; display: block; margin-bottom: 8px;">Update Type:</label>
+                <div style="display: flex; gap: 20px;">
+                    <label style="color: #b0bec5; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" name="update-type" value="firmware" checked> Firmware (.bin)
+                    </label>
+                    <label style="color: #b0bec5; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="radio" name="update-type" value="spiffs"> Filesystem (.bin)
+                    </label>
+                </div>
+            </div>
+            
+            <input type="file" id="ota-file" style="margin-bottom: 20px; border: 1px dashed #546e7a; padding: 20px; width: 100%; border-radius: 10px; cursor: pointer; color: #eceff1;">
+            
+            <div id="ota-progress-container" style="display: none; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span style="color: #eceff1; font-size: 14px;">Uploading...</span>
+                    <span id="ota-percent" style="color: #81d4fa; font-size: 14px;">0%</span>
+                </div>
+                <div style="background: #263238; height: 10px; border-radius: 5px; overflow: hidden;">
+                    <div id="ota-progress-bar" style="background: #0288d1; width: 0%; height: 100%; transition: width 0.3s;"></div>
+                </div>
+            </div>
+            
+            <button id="ota-btn" class="btn-on" onclick="startOTA()" style="width: 100%;">Start Update</button>
+        </div>
+    </div>
+    <div id="toast-container"></div>
+    <script src="helpers.min.js"></script>
+    <script src="update.min.js"></script>
+</body>
+</html>
