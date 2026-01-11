@@ -8,6 +8,7 @@
 #include "esp_system.h"
 #include <stdio.h>
 #include <sys/stat.h>
+#include "cJSON.h"
 
 static const char *TAG = "WEB";
 
@@ -57,27 +58,46 @@ static const char* mode_to_str(relay_mode_t mode) {
 
 // API endpoint to get relay status (JSON)
 static esp_err_t api_status_handler(httpd_req_t *req) {
-    char json[512];
-    int len = snprintf(json, sizeof(json), "{\"relays\":[");
+    cJSON *root = cJSON_CreateObject();
+    cJSON *relays_arr = cJSON_AddArrayToObject(root, "relays");
     
     for (int i = 0; i < NUM_RELAYS; i++) {
         relay_mode_t mode = relay_get_mode(i);
         uint32_t remaining = (mode != RELAY_MODE_OFF) ? relay_get_remaining_time(i) : 0;
-        len += snprintf(json + len, sizeof(json) - len,
-            R"(%s{"id":%d,"state":"%s","mode":"%s","rem":%u})",
-            (i > 0) ? "," : "",
-            i,
-            (mode != RELAY_MODE_OFF) ? "on" : "off",
-            mode_to_str(mode),
-            (unsigned int)remaining
-        );
+        
+        cJSON *relay = cJSON_CreateObject();
+        cJSON_AddNumberToObject(relay, "id", i);
+        cJSON_AddStringToObject(relay, "state", (mode != RELAY_MODE_OFF) ? "on" : "off");
+        cJSON_AddStringToObject(relay, "mode", mode_to_str(mode));
+        cJSON_AddNumberToObject(relay, "rem", remaining);
+        cJSON_AddItemToArray(relays_arr, relay);
     }
     
-    snprintf(json + len, sizeof(json) - len, "]}");
+    // Add routine status
+    routine_state_t* rs = relay_get_routine_status();
+    cJSON *routine = cJSON_AddObjectToObject(root, "routine");
+    cJSON_AddBoolToObject(routine, "running", rs->is_running);
+    if (rs->is_running) {
+        cJSON_AddStringToObject(routine, "name", rs->name);
+        cJSON_AddNumberToObject(routine, "currentStep", rs->current_step);
+        cJSON_AddNumberToObject(routine, "numSteps", rs->num_steps);
+        cJSON *steps_arr = cJSON_AddArrayToObject(routine, "steps");
+        for (int i = 0; i < rs->num_steps; i++) {
+            cJSON *step = cJSON_CreateObject();
+            cJSON_AddStringToObject(step, "name", rs->steps[i].name);
+            cJSON_AddNumberToObject(step, "id", rs->steps[i].relay_id);
+            cJSON_AddNumberToObject(step, "duration", rs->steps[i].duration_sec / 60);
+            cJSON_AddItemToArray(steps_arr, step);
+        }
+    }
     
+    char *json_str = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    
+    free(json_str);
+    cJSON_Delete(root);
     return ESP_OK;
 }
 
@@ -151,6 +171,95 @@ static esp_err_t api_relay_handler(httpd_req_t *req) {
 
     httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing parameters");
     return ESP_FAIL;
+}
+
+// New handlers for routine control
+static esp_err_t api_routine_control_handler(httpd_req_t *req) {
+    size_t query_len = httpd_req_get_url_query_len(req);
+    if (query_len == 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing query string");
+        return ESP_FAIL;
+    }
+
+    char *query = malloc(query_len + 1);
+    if (httpd_req_get_url_query_str(req, query, query_len + 1) != ESP_OK) {
+        free(query);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to get query");
+        return ESP_FAIL;
+    }
+
+    char action[16] = {0};
+    if (httpd_query_key_value(query, "action", action, sizeof(action)) != ESP_OK) {
+        free(query);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing action");
+        return ESP_FAIL;
+    }
+
+    if (strcmp(action, "stop") == 0) {
+        relay_stop_routine();
+    } else if (strcmp(action, "skip") == 0) {
+        relay_skip_routine_step();
+    } else if (strcmp(action, "start") == 0) {
+        char index_str[8] = {0};
+        if (httpd_query_key_value(query, "index", index_str, sizeof(index_str)) != ESP_OK) {
+            free(query);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing routine index");
+            return ESP_FAIL;
+        }
+        int index = atoi(index_str);
+
+        // Load routines from file to get the steps
+        FILE *f = fopen("/spiffs/routines.json", "r");
+        if (!f) {
+            free(query);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Routines file not found");
+            return ESP_FAIL;
+        }
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *data = malloc(fsize + 1);
+        fread(data, 1, fsize, f);
+        fclose(f);
+        data[fsize] = 0;
+
+        cJSON *routines_arr = cJSON_Parse(data);
+        free(data);
+        if (!routines_arr) {
+            free(query);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to parse routines");
+            return ESP_FAIL;
+        }
+
+        cJSON *routine_item = cJSON_GetArrayItem(routines_arr, index);
+        if (!routine_item) {
+            cJSON_Delete(routines_arr);
+            free(query);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Routine index out of range");
+            return ESP_FAIL;
+        }
+
+        const char* name = cJSON_GetObjectItem(routine_item, "name")->valuestring;
+        cJSON *steps_arr = cJSON_GetObjectItem(routine_item, "steps");
+        int num_steps = cJSON_GetArraySize(steps_arr);
+        routine_step_t steps[MAX_ROUTINE_STEPS];
+        int count = 0;
+        for (int i = 0; i < num_steps && count < MAX_ROUTINE_STEPS; i++) {
+            cJSON *step_item = cJSON_GetArrayItem(steps_arr, i);
+            if (cJSON_GetObjectItem(step_item, "enabled")->valueint) {
+                steps[count].relay_id = cJSON_GetObjectItem(step_item, "id")->valueint;
+                steps[count].duration_sec = cJSON_GetObjectItem(step_item, "duration")->valueint * 60;
+                strncpy(steps[count].name, cJSON_GetObjectItem(step_item, "name")->valuestring, sizeof(steps[count].name) - 1);
+                count++;
+            }
+        }
+        relay_start_routine(name, steps, count);
+        cJSON_Delete(routines_arr);
+    }
+
+    free(query);
+    httpd_resp_sendstr(req, "{\"success\":true}");
+    return ESP_OK;
 }
 
 // Helper function to serve files from SPIFFS
@@ -375,8 +484,12 @@ static esp_err_t app_js_handler(httpd_req_t *req) {
     return serve_spiffs_file(req, "/spiffs/app.min.js", "application/javascript");
 }
 
-static esp_err_t config_js_handler(httpd_req_t *req) {
-    return serve_spiffs_file(req, "/spiffs/config.min.js", "application/javascript");
+static esp_err_t helpers_js_handler(httpd_req_t *req) {
+    return serve_spiffs_file(req, "/spiffs/helpers.min.js", "application/javascript");
+}
+
+static esp_err_t favicon_handler(httpd_req_t *req) {
+    return serve_spiffs_file(req, "/spiffs/favicon.ico", "image/x-icon");
 }
 
 static esp_err_t routine_js_handler(httpd_req_t *req) {
@@ -453,19 +566,19 @@ void web_server_start(void) {
         };
         httpd_register_uri_handler(server, &routine_min_js_uri);
 
-        httpd_uri_t config_js_uri = {
-            .uri = "/config.js",
+        httpd_uri_t helpers_js_uri = {
+            .uri = "/helpers.js",
             .method = HTTP_GET,
-            .handler = config_js_handler
+            .handler = helpers_js_handler
         };
-        httpd_register_uri_handler(server, &config_js_uri);
+        httpd_register_uri_handler(server, &helpers_js_uri);
 
-        httpd_uri_t config_min_js_uri = {
-            .uri = "/config.min.js",
+        httpd_uri_t helpers_min_js_uri = {
+            .uri = "/helpers.min.js",
             .method = HTTP_GET,
-            .handler = config_js_handler
+            .handler = helpers_js_handler
         };
-        httpd_register_uri_handler(server, &config_min_js_uri);
+        httpd_register_uri_handler(server, &helpers_min_js_uri);
 
         httpd_uri_t style_uri = {
             .uri = "/style.min.css",
@@ -523,6 +636,20 @@ void web_server_start(void) {
             .handler = api_ota_handler
         };
         httpd_register_uri_handler(server, &api_ota_uri);
+
+        httpd_uri_t api_routine_control_uri = {
+            .uri = "/api/routine/control",
+            .method = HTTP_GET,
+            .handler = api_routine_control_handler
+        };
+        httpd_register_uri_handler(server, &api_routine_control_uri);
+
+        httpd_uri_t favicon_uri = {
+            .uri = "/favicon.ico",
+            .method = HTTP_GET,
+            .handler = favicon_handler
+        };
+        httpd_register_uri_handler(server, &favicon_uri);
         
         ESP_LOGI(TAG, "Web server started with API endpoints");
     }

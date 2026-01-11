@@ -215,6 +215,8 @@ button:active:not(:disabled) {
 
 .nav-link:hover {
     text-decoration: underline;
+    transform: scale(1.15);
+    transition: all 0.3s;
 }
 
 /* Routine Specific Styles */
@@ -448,6 +450,43 @@ button:active:not(:disabled) {
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
+}
+
+.routine-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.step-active {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e1f5fe;
+}
+
+.step-list-mini {
+    display: flex;
+    gap: 4px;
+}
+
+.step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+}
+
+.step-dot.done {
+    background: #81c784;
+}
+
+.step-dot.busy {
+    background: #ffeb3b;
+    box-shadow: 0 0 5px #ffeb3b;
+}
+
+.step-dot.todo {
+    background: rgba(255,255,255,0.4);
 }
 
 .btn-stop-routine, .btn-skip-routine {

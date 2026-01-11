@@ -1,28 +1,8 @@
-
 const ICONS = {
     timer: `<svg class="status-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`,
     manual: `<svg class="status-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`
 };
 
-function showToast(message, type = 'error') {
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        document.body.appendChild(toastContainer);
-    }
-
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    
-    toastContainer.appendChild(toast);
-
-    setTimeout(() => {
-        toast.classList.add('fade-out');
-        setTimeout(() => toast.remove(), 500);
-    }, 3000);
-}
 
 async function toggleRelay(id, action, durationMinutes) {
     const card = document.getElementById('relay-' + id);
@@ -148,6 +128,41 @@ async function updateStatus() {
             }
             updateRelayUI(relay.id, relay.state, relay.mode, relay.rem);
         });
+
+        // Update routine UI
+        if (data.routine) {
+            const wasRunning = activeRoutineId !== null;
+            const isRunning = data.routine.running;
+            
+            // Find which local routine matches the name (best effort)
+            const routineIndex = routines.findIndex(r => r.name === data.routine.name);
+            activeRoutineId = isRunning ? routineIndex : null;
+
+            if (wasRunning && !isRunning) {
+                showToast(`Routine completed!`, "success");
+            }
+            
+            renderRoutines();
+            
+            if (isRunning && routineIndex !== -1) {
+                const statusEl = document.getElementById(`routine-status-${routineIndex}`);
+                if (statusEl) {
+                    const current = data.routine.currentStep;
+                    const steps = data.routine.steps;
+                    const stepName = steps[current] ? steps[current].name : '?';
+                    statusEl.innerHTML = `
+                        <div class="routine-progress">
+                            <span class="step-active">Active: ${stepName} (${current + 1}/${data.routine.numSteps})</span>
+                            <div class="step-list-mini">
+                                ${steps.map((s, i) => `
+                                    <span class="step-dot ${i < current ? 'done' : (i === current ? 'busy' : 'todo')}" title="${s.name}"></span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
     } catch (error) {
         console.error('Status update error:', error);
     }
@@ -209,75 +224,37 @@ function renderRoutines() {
     });
 }
 
-function stopActiveRoutine(event) {
+async function stopActiveRoutine(event) {
     if (event) event.stopPropagation();
-    stopRequested = true;
+    try {
+        await fetch('/api/routine/control?action=stop');
+        await updateStatus();
+    } catch (e) {
+        console.error("Failed to stop routine", e);
+    }
 }
 
-function skipStep(event) {
+async function skipStep(event) {
     if (event) event.stopPropagation();
-    skipRequested = true;
+    try {
+        await fetch('/api/routine/control?action=skip');
+        await updateStatus();
+    } catch (e) {
+        console.error("Failed to skip step", e);
+    }
 }
 
 async function runRoutine(index) {
-    if (activeRoutineId !== null) {
-        showToast("A routine is already running");
-        return;
-    }
-
-    const routine = routines[index];
-    
-    activeRoutineId = index;
-    stopRequested = false;
-    skipRequested = false;
-    renderRoutines();
-
-    const sortedSteps = [...routine.steps]
-        .filter(s => s.enabled)
-        .sort((a, b) => a.order - b.order);
-
-    for (const step of sortedSteps) {
-        if (stopRequested) break;
-        skipRequested = false;
-        
-        document.getElementById(`routine-status-${index}`).textContent = `Watering ${step.name}...`;
-        
-        try {
-            await toggleRelay(step.id, 'timed', step.duration);
-            
-            // Wait for this step to complete (with a small buffer)
-            const durationMs = step.duration * 60 * 1000;
-            const startTime = Date.now();
-            
-            // Poll for stop/skip request while waiting
-            while (Date.now() - startTime < durationMs + 2000) {
-                if (stopRequested || skipRequested) {
-                    await toggleRelay(step.id, 'off');
-                    break;
-                }
-                await new Promise(r => setTimeout(r, 1000));
-            }
-            
-            if (stopRequested) break;
-            
-            // Re-sync status
+    try {
+        const response = await fetch(`/api/routine/control?action=start&index=${index}`);
+        const data = await response.json();
+        if (data.success) {
             await updateStatus();
-        } catch (e) {
-            console.error("Routine step failed", e);
-            showToast(`Step ${step.name} failed`);
-            break;
         }
+    } catch (e) {
+        console.error("Failed to start routine", e);
+        showToast("Failed to start routine");
     }
-
-    const wasStopped = stopRequested;
-    activeRoutineId = null;
-    stopRequested = false;
-    skipRequested = false;
-    renderRoutines();
-    if (!wasStopped) {
-        showToast(`Routine ${routine.name} completed!`, "success");
-    }
-    updateStatus();
 }
 
 function createRelayCards() {
