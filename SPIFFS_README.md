@@ -45,15 +45,18 @@ The `partitions.csv` file defines the flash memory layout:
 
 ```csv
 # Name,   Type, SubType, Offset,  Size, Flags
-nvs,      data, nvs,     0x9000,  0x6000,
+nvs,      data, nvs,     0x9000,  0x4000,
+otadata,  data, ota,     0xd000,  0x2000,
 phy_init, data, phy,     0xf000,  0x1000,
-factory,  app,  factory, 0x10000, 0x400000,  # 4MB for firmware
-storage,  data, spiffs,  ,        0xA00000,  # 10MB for SPIFFS
+ota_0,    app,  ota_0,   0x10000, 0x400000,  # 4MB for firmware
+ota_1,    app,  ota_1,   ,        0x400000,  # 4MB for firmware
+storage,  data, spiffs,  ,        0x700000,  # 7MB for SPIFFS
 ```
 
 - **NVS**: Non-volatile storage for Wi-Fi credentials
-- **factory**: Main firmware partition (4MB)
-- **storage**: SPIFFS partition for web files (10MB)
+- **otadata**: OTA selection data
+- **ota_0 / ota_1**: Dual app partitions for OTA updates
+- **storage**: SPIFFS partition for web files (7MB)
 
 ## Build and Upload Process
 
