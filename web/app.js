@@ -247,6 +247,11 @@ async function skipStep(event) {
 async function runRoutine(index) {
     try {
         const response = await fetch(`/api/routine/control?action=start&index=${index}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            showToast(errorText || "A routine is already running");
+            return;
+        }
         const data = await response.json();
         if (data.success) {
             await updateStatus();

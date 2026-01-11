@@ -253,8 +253,14 @@ static esp_err_t api_routine_control_handler(httpd_req_t *req) {
                 count++;
             }
         }
-        relay_start_routine(name, steps, count);
+        if (relay_start_routine(name, steps, count)) {
+            httpd_resp_sendstr(req, "{\"success\":true}");
+        } else {
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "A routine is already running");
+        }
         cJSON_Delete(routines_arr);
+        free(query);
+        return ESP_OK;
     }
 
     free(query);

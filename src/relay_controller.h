@@ -37,7 +37,7 @@ bool relay_get_state(uint8_t relay_num);
 uint32_t relay_get_remaining_time(uint8_t relay_num);
 
 // Routine management
-void relay_start_routine(const char* name, routine_step_t* steps, uint8_t num_steps);
+bool relay_start_routine(const char* name, routine_step_t* steps, uint8_t num_steps);
 void relay_stop_routine(void);
 void relay_skip_routine_step(void);
 routine_state_t* relay_get_routine_status(void);

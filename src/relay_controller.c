@@ -7,7 +7,7 @@
 #include "freertos/timers.h"
 #include "freertos/task.h"
 
-static const gpio_num_t relay_pins[NUM_RELAYS] = {(gpio_num_t) 7, (gpio_num_t) 6, (gpio_num_t) 5, (gpio_num_t) 10};
+static const gpio_num_t relay_pins[NUM_RELAYS] = {(gpio_num_t) 6, (gpio_num_t) 7, (gpio_num_t) 5, (gpio_num_t) 10};
 // Adjust your GPIOs
 static relay_mode_t relay_modes[NUM_RELAYS] = {RELAY_MODE_OFF};
 static TimerHandle_t relay_timers[NUM_RELAYS] = {0};
@@ -57,9 +57,9 @@ static void routine_task(void* pvParameters) {
     vTaskDelete(NULL);
 }
 
-void relay_start_routine(const char* name, routine_step_t* steps, uint8_t num_steps) {
+bool relay_start_routine(const char* name, routine_step_t* steps, uint8_t num_steps) {
     if (routine_state.is_running) {
-        relay_stop_routine();
+        return false;
     }
     
     memset(&routine_state, 0, sizeof(routine_state_t));
@@ -70,6 +70,7 @@ void relay_start_routine(const char* name, routine_step_t* steps, uint8_t num_st
     
     skip_step_requested = false;
     xTaskCreate(routine_task, "routine_task", 4096, NULL, 5, &routine_task_handle);
+    return true;
 }
 
 void relay_stop_routine(void) {
