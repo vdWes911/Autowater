@@ -8,6 +8,7 @@ data/*.min.html
 data/*.min.css
 data/*.min.js
 data/config.min.js
+data/
 
 # Node.js
 node_modules/
